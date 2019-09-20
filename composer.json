@@ -1,5 +1,5 @@
 {
-  "name": "limonte/php-adblock-parser",
+  "name": "carono/php-adblock-parser",
   "description": "PHP parser for Adblock Plus filters",
   "keywords": [
     "adblock",
