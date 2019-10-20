@@ -74,7 +74,6 @@ class AdblockParser
     {
         $md5 = md5(serialize($rules));
         if ($useCache && ($ruleObjects = $this->getCacheValue($md5))) {
-            file_put_contents('1.txt', print_r($ruleObjects, 1));
             $this->rules = $ruleObjects;
             return;
         }
@@ -151,7 +150,6 @@ class AdblockParser
             if ($rule->isComment() || $rule->isHtml()) {
                 continue;
             }
-
             if ($rule->matchUrl($url)) {
                 if ($rule->isException()) {
                     return false;
