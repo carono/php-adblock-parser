@@ -2,3 +2,5 @@
 /avantlink/*
 /avmws_*.js
 @@/avmws_exception.js
+@@//promo.$popup,domain=bactistatin.com|gamexp.ru|iguides.ru|ingate.ru|yandex.ru
+@@||promo.static.gamexp.ru^

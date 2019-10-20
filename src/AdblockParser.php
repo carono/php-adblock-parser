@@ -1,9 +1,21 @@
 <?php
+
 namespace Limonte;
 
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+
+/**
+ * Class AdblockParser
+ *
+ * @package Limonte
+ * @property AdblockRule[] $rules
+ */
 class AdblockParser
 {
     private $rules;
+    private $cache;
+
+    public $cacheClass = FilesystemAdapter::class;
 
     private $cacheFolder;
 
@@ -16,10 +28,57 @@ class AdblockParser
     }
 
     /**
-     * @param  string[]  $rules
+     * @param $request
+     * @param $data
      */
-    public function addRules($rules)
+    public function setCacheValue($request, $data)
     {
+        $item = $this->getCache()->getItem(md5($request));
+        $item->set($data);
+        $this->getCache()->save($item);
+    }
+
+    /**
+     * @return \Symfony\Component\Cache\Adapter\AbstractAdapter
+     */
+    public function getCache()
+    {
+        if ($this->cache) {
+            return $this->cache;
+        }
+        $cache = new $this->cacheClass('parser', 60 * 24 * $this->getCacheExpire(), $this->getCacheFolder());
+        $this->cache = $cache;
+        return $cache;
+    }
+
+    /**
+     * @param $request
+     * @return mixed
+     */
+    public function getCacheValue($request)
+    {
+        return $this->getCache()->getItem(md5($request))->get();
+    }
+
+    public function clearCache()
+    {
+        $this->getCache()->clear();
+//        FileHelper::removeDirectory(static::getTemporaryDir());
+    }
+
+    /**
+     * @param  string[] $rules
+     * @param bool $useCache
+     */
+    public function addRules($rules, $useCache = true)
+    {
+        $md5 = md5(serialize($rules));
+        if ($useCache && ($ruleObjects = $this->getCacheValue($md5))) {
+            file_put_contents('1.txt', print_r($ruleObjects, 1));
+            $this->rules = $ruleObjects;
+            return;
+        }
+
         foreach ($rules as $rule) {
             try {
                 $this->rules[] = new AdblockRule($rule);
@@ -32,28 +91,35 @@ class AdblockParser
         usort($this->rules, function (AdblockRule $a, AdblockRule $b) {
             return (int)$a->isException() < (int)$b->isException();
         });
+
+        $this->setCacheValue($md5, $this->rules);
     }
 
     /**
-     * @param  string|array  $path
+     * @param  string|array $path
+     * @param bool $useCache
      */
-    public function loadRules($path)
+    public function loadRules($path, $useCache = true)
     {
         // single resource
         if (is_string($path)) {
             if (filter_var($path, FILTER_VALIDATE_URL)) {
-                $content = $this->getCachedResource($path);
+                $content = $this->getCacheValue($path);
+                if (!$content) {
+                    $this->setCacheValue($path, $content = @file_get_contents($path));
+                }
             } else {
                 $content = @file_get_contents($path);
             }
+
             if ($content) {
                 $rules = preg_split("/(\r\n|\n|\r)/", $content);
-                $this->addRules($rules);
+                $this->addRules($rules, $useCache);
             }
-        // array of resources
+            // array of resources
         } elseif (is_array($path)) {
             foreach ($path as $item) {
-                $this->loadRules($item);
+                $this->loadRules($item, $useCache);
             }
         }
     }
@@ -67,19 +133,21 @@ class AdblockParser
     }
 
     /**
-     * @param  string  $url
+     * @param  string $url
      *
      * @return boolean
+     * @throws \Exception
      */
     public function shouldBlock($url)
     {
         $url = trim($url);
 
         if (filter_var($url, FILTER_VALIDATE_URL) === false) {
-            throw new \Exception("Invalid URL");
+            throw new \Exception('Invalid URL');
         }
 
         foreach ($this->rules as $rule) {
+
             if ($rule->isComment() || $rule->isHtml()) {
                 continue;
             }
@@ -96,7 +164,7 @@ class AdblockParser
     }
 
     /**
-     * @param  string  $url
+     * @param  string $url
      *
      * @return boolean
      */
@@ -112,13 +180,13 @@ class AdblockParser
      */
     public function getCacheFolder()
     {
-        return $this->cacheFolder;
+        return $this->cacheFolder ?: dirname(__DIR__) . '/cache';
     }
 
     /**
      * Set cache folder
      *
-     * @param  string  $cacheFolder
+     * @param  string $cacheFolder
      */
     public function setCacheFolder($cacheFolder)
     {
@@ -138,7 +206,7 @@ class AdblockParser
     /**
      * Set cache expire (in days)
      *
-     * @param  integer  $expireInDays
+     * @param  integer $expireInDays
      */
     public function setCacheExpire($expireInDays)
     {
@@ -148,17 +216,17 @@ class AdblockParser
     /**
      * Clear external resources cache
      */
-    public function clearCache()
-    {
-        if ($this->cacheFolder) {
-            foreach (glob($this->cacheFolder . '*') as $file) {
-                unlink($file);
-            }
-        }
-    }
+//    public function clearCache()
+//    {
+//        if ($this->cacheFolder) {
+//            foreach (glob($this->cacheFolder . '*') as $file) {
+//                unlink($file);
+//            }
+//        }
+//    }
 
     /**
-     * @param  string  $url
+     * @param  string $url
      *
      * @return string
      */

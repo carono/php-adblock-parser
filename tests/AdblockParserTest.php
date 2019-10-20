@@ -1,8 +1,15 @@
 <?php
+
 namespace Limonte\Tests;
 
 use Limonte\AdblockParser;
 
+/**
+ * Class AdblockParserTest
+ *
+ * @package Limonte\Tests
+ * @property AdblockParser $parser
+ */
 class AdblockParserTest extends \PHPUnit_Framework_TestCase
 {
     /**
@@ -173,6 +180,21 @@ class AdblockParserTest extends \PHPUnit_Framework_TestCase
 
         $this->shouldBlock('http://rek.www.wp.pl');    // rule from the first resource
         $this->shouldBlock('http://webcount.finn.no'); // rule from the second resource
+        $this->shouldNotBlock('');
+    }
+
+    /**
+     * @dataProvider easyListUrlProvider
+     */
+    public function testEasyList($url, $isShould)
+    {
+        $this->parser = new AdblockParser;
+        $this->parser->loadRules([__DIR__ . '/easylist.txt'], false);
+        if ($isShould) {
+            $this->shouldBlock($url);
+        } else {
+            $this->shouldNotBlock($url);
+        }
     }
 
     private function shouldBlock($url)
@@ -195,5 +217,15 @@ class AdblockParserTest extends \PHPUnit_Framework_TestCase
                 $this->assertTrue($this->parser->shouldNotBlock($i), $i);
             }
         }
+    }
+
+    public function easyListUrlProvider()
+    {
+        return [
+            ['http://clickscloud.net/', 1],
+            ['http://apygame.com/click', 1],
+            ['http://apollocdn.cc', 1],
+            ['http://gamexp.ru', 0]
+        ];
     }
 }
